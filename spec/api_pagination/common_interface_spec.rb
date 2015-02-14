@@ -1,12 +1,10 @@
-require 'spec_helper'
-
-CommonInterfaceKlass = Class.new do
-  include Api::Pagination::CommonInterface
-  attr_accessor :values
-end
-
 describe Api::Pagination::CommonInterface do
-  subject { CommonInterfaceKlass.new }
+  subject do
+    Class.new do
+      include Api::Pagination::CommonInterface
+      attr_accessor :values
+    end.new
+  end
 
   it 'can set pagination options, returning self for chaining' do
     expect(subject.set_pagination_options(foo: 'bar')).to eq(subject)

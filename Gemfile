@@ -3,6 +3,9 @@ source 'https://rubygems.org'
 
 gemspec
 
+gem 'activerecord'
+gem 'sqlite3'
+
 gem 'rake'
 gem 'rspec'
 
