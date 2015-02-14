@@ -36,8 +36,27 @@ class MyModel < ActiveRecord::Base
   include Api::Pagination::Simple
 end
 
-MyModel.order('created_at DESC').page(2).per(5)
+MyModel.order('created_at DESC').page(2).per(5) # 5 records, starting at page 2
 ```
+
+### Timestamp Paginator
+
+The Timestamp paginator is a more robust way to paginate records where content is being consistently added between page
+requests. This provides the benefit of not getting duplicate records in subsequent page requests.
+
+```ruby
+class MyModel < ActiveRecord::Base
+  include Api::Pagination::Timestamp
+end
+
+MyModel.page_by(before: true).per(5) # 5 records, ordered by created_at DESC
+MyModel.page_by(before: 2.minutes.ago).per(5) # 5 records, ordered by created_at DESC, where created_at > 2 minutes ago
+MyModel.page_by(after: true).per(5) # 5 records, ordered by created_at ASC
+MyModel.page_by(after: 2.minutes.ago).per(5) # 5 records, ordered by created_at ASC, where created_at < 2 minutes ago
+MyModel.page_by(after: true, column: :updated_at).per(5) # 5 records, ordered by updated_at ASC
+```
+
+TODO: document more complex usages with the `page_value` callback, and how to use pagination with join tables.
 
 
 ## License

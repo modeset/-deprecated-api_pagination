@@ -13,7 +13,7 @@ class Item < ActiveRecord::Base; end
 Dir[File.expand_path('../support/active_record/**/*.rb', __FILE__)].each { |f| require f }
 
 # turn on active record logging if needed
-ActiveRecord::Base.logger = Logger.new(STDOUT)
+# ActiveRecord::Base.logger = Logger.new(STDOUT)
 
 RSpec.configure do |config|
 

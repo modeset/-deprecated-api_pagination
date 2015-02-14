@@ -2,6 +2,7 @@ require 'active_record_helper'
 
 describe Api::Pagination::Simple do
   subject { SimpleMock }
+  let(:time) { Time.zone.parse('Oct 20 00:00:00 GMT 2012') }
 
   describe 'api' do
 
@@ -36,7 +37,7 @@ describe Api::Pagination::Simple do
   describe 'scope' do
     let(:scope) { subject.page(2).per(2) }
     before do
-      5.times { Item.create! }
+      5.times { subject.create! }
     end
 
     it 'knows when it is paginatable' do
@@ -90,9 +91,8 @@ describe Api::Pagination::Simple do
   end
 
   describe 'paginating' do
-    let(:time) { Time.parse('Oct 20 00:00:00 GMT 2012') }
     before do
-      5.times { |i| Item.create!(created_at: time - i.days) }
+      5.times { |i| subject.create!(created_at: time - i.days) }
     end
 
     it 'returns the expected results' do
@@ -118,22 +118,17 @@ describe Api::Pagination::Simple do
       expect(page3.next_page_value).to be_nil
     end
 
-  end
+    describe 'with params' do
+      let(:params) { { foo: 'bar' } }
 
-  describe 'generating params' do
-    let(:time) { Time.parse('Oct 20 00:00:00 GMT 2012') }
-    let(:params) { { foo: 'bar' } }
-    before do
-      5.times { |i| Item.create!(created_at: time - i.days) }
+      it 'includes additional page params' do
+        page = subject.order('created_at DESC').page.per(2)
+        expect(page.page_param(params, page.first_page_value, 'first')).to eq(page: 1, foo: 'bar')
+        expect(page.page_param(params, page.last_page_value, 'last')).to eq(page: 3, foo: 'bar')
+        expect(page.page_param(params, page.prev_page_value, 'prev')).to eq(page: nil, foo: 'bar')
+        expect(page.page_param(params, page.next_page_value, 'next')).to eq(page: 2, foo: 'bar')
+      end
+
     end
-
-    it 'adds paginator params to existing params' do
-      page = subject.order('created_at DESC').page.per(2)
-      expect(page.page_param(params, page.first_page_value, '_')).to eq(page: 1, foo: 'bar')
-      expect(page.page_param(params, page.last_page_value, '_')).to eq(page: 3, foo: 'bar')
-      expect(page.page_param(params, page.prev_page_value, '_')).to eq(page: nil, foo: 'bar')
-      expect(page.page_param(params, page.next_page_value, '_')).to eq(page: 2, foo: 'bar')
-    end
-
   end
 end
