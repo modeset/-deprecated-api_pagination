@@ -14,7 +14,8 @@ and wanting to provide consistent summaries of the pagination results.
 ## Table of Contents
 
 1. [Installation](#installation)
-2. [Usage](#usage)
+2. [Configuration](#configuration)
+3. [Usage](#usage)
 
 ## Installation
 
@@ -31,6 +32,43 @@ $ bundle
 Or install it yourself as:
 ```shell
 $ gem install chewy
+```
+
+
+## Configuration
+
+You can feel free to configure all pagination modules at once, or focus on specific ones. This is the basic
+configuration that's provided by default.
+
+```
+Api::Pagination.configure do |config|
+  # configure all pagination modules
+  config.per_page_default 25 # default per page
+  config.per_page_max 100 # maximum limit for per page values
+  config.timestamp_format '%Y-%m-%dT%H:%M:%S.%N%z' # format for query params
+  config.pessimistic_multiplier 2 # eager load (per page * 2) before filtering
+
+  # configure only the simple module
+  config.simple do |c|
+    c.per_page_default 25 # default per page
+    c.per_page_max 100 # maximum limit for per page values
+  end
+
+  # configure only the timestamp module
+  config.timestamp do |c|
+    c.per_page_default 25 # default per page
+    c.per_page_max 100 # maximum limit for per page values
+    c.timestamp_format '%Y-%m-%dT%H:%M:%S.%N%z' # format for query params
+  end
+
+  # configure only the timestamp filterable module
+  config.timestamp_filterable do |c|
+    c.per_page_default 25 # default per page
+    c.per_page_max 100 # maximum limit for per page values
+    c.timestamp_format '%Y-%m-%dT%H:%M:%S.%N%z' # format for query params
+    c.pessimistic_multiplier 2 # eager load (per page * 2) before filtering
+  end
+end
 ```
 
 

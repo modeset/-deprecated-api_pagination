@@ -5,7 +5,7 @@ module Api
       PER_PAGE_DEFAULT = 25
       PER_PAGE_MAX = 100
       PESSIMISTIC_MULTIPLIER = 2
-      TIME_STAMP_FORMAT = '%Y-%m-%dT%H:%M:%S.%N%z'
+      TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%S.%N%z'
 
       def filtered?
         raise MissingFilterMethodError, self.class.name
@@ -136,10 +136,10 @@ module Api
         def page_value_for(record)
           if (callback = @options[:page_value]).respond_to?(:call)
             value = callback.call(record)
-            value = value.try(:strftime, TIME_STAMP_FORMAT) if value.respond_to?(:strftime)
+            value = value.try(:strftime, TIMESTAMP_FORMAT) if value.respond_to?(:strftime)
             value
           else
-            record.try(@options[:column]).try(:strftime, TIME_STAMP_FORMAT)
+            record.try(@options[:column]).try(:strftime, TIMESTAMP_FORMAT)
           end
         end
 
