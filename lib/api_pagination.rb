@@ -1,12 +1,14 @@
 require 'api_pagination/version'
 require 'api_pagination/common_interface'
 
-require 'api_pagination/simple'
-require 'api_pagination/timestamp'
-require 'api_pagination/timestamp_filterable'
-
 module Api::Pagination
-  class MissingFilterMethodError < StandardError; end
+  autoload :Simple, 'api_pagination/simple'
+  autoload :Timestamp, 'api_pagination/timestamp'
+  autoload :TimestampFilterable, 'api_pagination/timestamp_filterable'
+
+  class MissingFilterMethodError < StandardError
+  end
+
   class InvalidTimestampError < StandardError
     def initialize(value)
       super [
