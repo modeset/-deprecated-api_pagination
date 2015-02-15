@@ -9,14 +9,6 @@ Api::Pagination is a collection of pagination scopes that follow a consistent in
 referred to throughout your application in consistent terms. This was born from the need for more complex pagination
 rules and wanting to provide consistent summaries of the pagination results.
 
-The pagination scopes can be used on ActiveRecord collections, and then the pagination information can be added to the
-response headers, which is considered to be best practice for REST APIs and is used by
-[GitHub](https://developer.github.com/v3/#pagination).
-
-Links to previous/next pages are available in the `Link` [response header](http://tools.ietf.org/html/rfc5988) as well
-as totals in the `X-Total-Count`, `X-Total-Pages` and `X-Total-Pages-Remaining` headers. These can be parsed by client
-applications and provided back to the server for subsequent pages.
-
 ## Table of Contents
 
 1. [Installation](#installation)
