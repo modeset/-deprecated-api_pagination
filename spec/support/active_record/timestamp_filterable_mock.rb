@@ -19,4 +19,3 @@ class TimestampFilterableMock < ActiveRecord::Base
     end
   end
 end
-

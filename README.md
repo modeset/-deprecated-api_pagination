@@ -5,9 +5,17 @@ Api::Pagination
 [![Code Climate](https://codeclimate.com/repos/54df9005e30ba012930060e4/badges/e466695e9c8859eaafd2/gpa.svg)](https://codeclimate.com/repos/54df9005e30ba012930060e4/feed)
 [![Test Coverage](https://codeclimate.com/repos/54df9005e30ba012930060e4/badges/e466695e9c8859eaafd2/coverage.svg)](https://codeclimate.com/repos/54df9005e30ba012930060e4/feed)
 
-Api::Pagination is a collection of pagination scopes that follow a consistent interface so paginated items can be
-referred to throughout your application in consistent terms. This was born from needing more complex pagination rules,
-and there not being an adequate solution that covered all cases we needed.
+Api::Pagination is a collection of pagination scopes that follow a consistent interface so paginated collections can be
+referred to throughout your application in consistent terms. This was born from the need for more complex pagination
+rules and wanting to provide consistent summaries of the pagination results.
+
+The pagination scopes can be used on ActiveRecord collections, and then the pagination information can be added to the
+response headers, which is considered to be best practice for REST APIs and is used by
+[GitHub](https://developer.github.com/v3/#pagination).
+
+Links to previous/next pages are available in the `Link` [response header](http://tools.ietf.org/html/rfc5988) as well
+as totals in the `X-Total-Count`, `X-Total-Pages` and `X-Total-Pages-Remaining` headers. These can be parsed by client
+applications and provided back to the server for subsequent pages.
 
 ## Table of Contents
 
@@ -17,72 +25,208 @@ and there not being an adequate solution that covered all cases we needed.
 
 ## Installation
 
-Add it to your Gemfile.
-
+Add it to your Gemfile:
 ```ruby
 gem 'api_pagination'
 ```
 
+And then execute:
+```shell
+$ bundle
+```
+
+Or install it yourself as:
+```shell
+$ gem install chewy
+```
+
+
 ## Usage
 
-### Simple Paginator
+### Pagination Scopes
 
-Simple paginator is your basic run of the mill page by number implementation. You can mix your own scopes, ask for a
-given page, and additionally specify how many results per page. If not specified 25 results will be returned per page,
-with a maximum of 100 results even if more are requested.
+#### Simple
+
+This is your basic run of the mill page by number implementation that we're all familiar with. You can mix your own
+scopes, ask for a given page, and additionally specify how many results per page. If not specified 25 results will be
+returned per page, with a maximum of 100 results even if more are requested.
 
 ```ruby
-class MyModel < ActiveRecord::Base
+class Item < ActiveRecord::Base
   include Api::Pagination::Simple
 end
 
-MyModel.order('created_at DESC').page(2).per(5) # 5 records, starting at page 2
+# 5 records, starting at page 2, ordered by created_at ASC
+@items = Item.order(:created_at).page(2).per(5)
+
+# 5 records, starting at page 3
+@items = Item.page(page: 3, per_page: 5)
 ```
 
-### Timestamp Paginator
-
-The Timestamp paginator is a more robust way to paginate records where content is being consistently added between page
-requests. This provides the benefit of not getting duplicate records in subsequent page requests.
+Once you've called the page scope, you can begin asking questions about it's results. These are mixed into the scope
+chain directly, and so you can ask questions. In these examples, we assume we have 23 records, and have asked for page
+3 with 5 per page.
 
 ```ruby
-class MyModel < ActiveRecord::Base
+@items.paginatable? # => true, if you've used the `page` scope at all.
+
+@items.total_count # => 23 - how many total records there are to page through.
+@items.total_pages # => 5 - the total number of pages.
+@items.total_pages_remaining # 2 - the number of pages remaining.
+
+@items.first_page? # false - boolean, if it's on the first page or not.
+@items.last_page? # false - boolean, if it's on the last page or not.
+```
+
+Additionally, you can get the various values to continue loading pages. For instance, you can get the page value for
+the first page, last page, etc.
+
+```ruby
+@items.first_page_value # => 1 - in the case of the simple paginator, this will always be 1
+@items.last_page_value # => 5 - page 5 would only load 3 records
+@items.next_page_value # => 4
+@items.prev_page_value # => 2
+```
+
+#### Timestamp
+
+This is a more robust way to paginate records when content could be added between page requests. For any real time, or
+semi-real time project this is the paginator to use.
+
+One of the challenges faced with simple number pagination is that if a new record is added, records already seen can be
+duplicated in subsequent page requests. An example of this is listing items from newest to oldest -- if a new item is
+created after loading page 1, but before page 2 has been loaded -- page 2 will now include the last item(s) from page 1.
+
+Paging by timestamp eliminates this problem, and any new items that are added between page loads don't cause
+duplication. At the same time, you may want to load additional items, which is why you can specify `before` or `after`
+when paging by timestamp. If you don't provide any pagination arguments, the first page is assumed (in descending
+order), with a default of 25 items, with a maximum of 100.
+
+```ruby
+class Item < ActiveRecord::Base
   include Api::Pagination::Timestamp
 end
 
-MyModel.page_by(before: true).per(5) # 5 records, ordered by created_at DESC
-MyModel.page_by(before: 2.minutes.ago).per(5) # 5 records, ordered by created_at DESC, where created_at > 2 minutes ago
-MyModel.page_by(after: true).per(5) # 5 records, ordered by created_at ASC
-MyModel.page_by(after: 2.minutes.ago).per(5) # 5 records, ordered by created_at ASC, where created_at < 2 minutes ago
-MyModel.page_by(after: true, column: :updated_at).per(5) # 5 records, ordered by updated_at ASC
+# 5 records, starting at the beginning, ordered by created_at DESC (newest to oldest)
+@items = Item.page_by.per(5)
+@items = Item.page_by(before: true).per(5)
+@items = Item.page_by(before: 'true', per_page: 5)
+
+# 2 records, ordered by created_at ASC (oldest to newest)
+@items = Item.page_by(after: true).per(2)
+
+# 5 records, ordered by created_at DESC, where created_at > 2 minutes ago
+@items = Item.page_by(before: 2.minutes.ago).per(5)
+
+# 5 records, ordered by created_at ASC, where created_at < 2 minutes ago
+@items = Item.page_by(after: 2.minutes.ago).per(5)
+
+# 5 records, ordered by updated_at ASC
+@items = Item.page_by(after: true, column: :updated_at).per(5)
 ```
 
-- TODO: document more complex usages with the `page_value` callback, and how to accomplish pagination with join tables.
+##### Advanced Usage
+
+There are times, especially within an API that you may want to get a collection of one object, but order it by a join
+table. This can be tricky, but is taken into consideration. This example is a bit complex, but shows how it can be
+accomplished using the `column` option, and `page_value` callback option.
+
+First, if you provide a `column` option as a symbol, it is assumed to mean a column on the current resource.
+
+```ruby
+Item.page_by(column: :updated_at).to_sql
+# => SELECT "items".* FROM "items" ORDER BY "items"."updated_at" DESC LIMIT 25
+```
+
+If you use a string however, you can specify any column on any table in the query. In our example, we want to order
+our items by when their creator was last updated.
+
+```ruby
+Item.joins(:creator).page_by(column: 'creators.updated_at').per(2).to_sql
+# => SELECT  "items".* FROM "items"
+#    INNER JOIN "creators" ON "creators"."id" = "items"."creator_id"
+#    ORDER BY creators.updated_at desc LIMIT 2
+```
+
+In cases like this, you must provide a `page_value` callback in the options, otherwise getting the values needed for the
+next/prev pages won't work -- since it doesn't know which attribute to use, and it doesn't exist on the records we've
+actually selected.
+
+```ruby
+page_value_callback = ->(item) { item.creator.updated_at }
+@items = Item.joins(:creator).page_by(column: 'creators.updated_at', page_value: page_value_callback).per(2)
+@items.next_page_value # => the updated_at column for the creator of the last item in the page.
+```
+
+In very complex examples of the above, you may need to utilize a custom select to get load in a psuedo attribute which
+you can then use in the `page_value` callback.
+
+```ruby
+options = {
+  column: 'views.created_at',
+  page_value: ->(item) { item.read_attribute(:view_created_at) }
+}
+Item.all_viewers.select('items.*, view.created_at AS view_created_at').page_by(options)
+```
+
 
 ### TimestampFilterable Paginator
 
-The TimestampFilterable paginator will load 2 pages of records and filter them down based on filtering logic, and will
-load additional pages if too many records have been filtered it. It primarily behaves as the Timestamp paginator, but
-expects a filter to be provided, or calls a `filtered?` method on each of the active record objects as it generates
-the page.
+This guy is basically the same as the Timestamp implementation, but will filter out results after they've been loaded.
+We found that it was considerably faster to filter results after loading them. This is probably only useful when dealing
+with very complex joins, and queries dealing with many millions/billions of records.
 
-This is a slightly different concept than the Simple and Timestamp paginators, in that it uses an enumerable instance
-that masquerades as an active record collection, but includes the common paginator interface.
+It works by loading 2 pages worth of records, filtering them down programatically, and then using an Enumerable to
+provide the results back. So by default, if you ask for 10 items per page, it will do a query to load 20, and then
+filter that set down based on the filter that you've specified. If it has filtered more than half of those records, an
+additional query is performed to load another collection, and begins filtering that collection until the total number
+desired is achieved.
+
+A filter is expected, and this can be accomplished in one of three ways. When filtering a collection of models, it will
+attempt to call a `filtered?` method on each record unless a `filter` option is provided. The `filter` option is
+expected to respond to `.call`, and so a proc or instance that implements `.call` can be used for more complex filtering
+logic.
+
+This paginator uses a slightly different concept than the Simple and Timestamp paginators, in that it uses an Enumerable
+that masquerades to some extent as an ActiveRecord collection, but also includes the common paginator interface. This
+means that when you call the `filtered_page_by` method, you are done with the scope chain, and because of this, allows
+passing a block where additional scopes can be added.
 
 ```ruby
-class MyModel < ActiveRecord::Base
+class Item < ActiveRecord::Base
   include Api::Pagination::TimestampFilterable
+  scope :active, -> { where(active: true) }
+
+  # filter method
   def filtered?
-    id > 3
+    disabled?
+  end
+
+  # filter class
+  class Filterer
+    def call(record)
+      !(record.name =~ /^filtered/)
+    end
   end
 end
 
-MyModel.filtered_page_by(before: true).per(5) # 5 records, ordered by created_at DESC
+# 5 records, ordered by created_at DESC -- filtered using `item.filtered?`.
+Item.filtered_page_by(before: true, per_page: 5)
+Item.filtered_page_by(before: 'true', per_page: 5)
+
+# 25 records, ordered by created_at DESC -- filtered using a proc.
+Item.filtered_page_by(filter: ->(record) { record.disabled? })
+
+# 25 records, ordered by created_at DESC -- filtered using a class instance.
+Item.filtered_page_by(filter: Item::Filterer.new)
+
+# 2 records, additional scope, ordered by created_at ASC -- filtered using `item.filtered?`.
+Item.filtered_page_by(per_page: 2, after: true) { |scope| scope.active }
 ```
 
-- TODO: document more complex usages with the `filter:` option using a proc or a class that responds to `call`.
-- TODO: document how the filtered api is the end of the scope chain, but accepts a block to add additional scoping to.
 - TODO: explain the limitations of using the enumerator, and the complications that can arise if not understood.
 - TODO: explain advanced usage, like using join tables for order/filtering.
+
 
 ## License
 
