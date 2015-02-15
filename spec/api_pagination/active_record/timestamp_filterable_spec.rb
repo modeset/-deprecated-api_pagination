@@ -24,7 +24,8 @@ describe Api::Pagination::TimestampFilterable do
     it 'raises an exception if there records do not implement #filtered?' do
       expect{ TimestampFilterableRawMock.new.filtered? }.to raise_error(
         Api::Pagination::MissingFilterMethodError,
-        'Expected TimestampFilterableRawMock to implement a `filtered?` method.'
+        'Missing filter or no filter provided, ' +
+        "expected TimestampFilterableRawMock to respond to filtered? or to have a filter option provided."
       )
     end
 
@@ -185,15 +186,15 @@ describe Api::Pagination::TimestampFilterable do
   end
 
   describe 'pagination' do
-    let!(:item1) { subject.create!(name: 'unfiltered-item1', created_at: time - 1.day,  active: true) }
-    let!(:item2) { subject.create!(name: 'filtered-item2',   created_at: time - 2.days) }
-    let!(:item3) { subject.create!(name: 'unfiltered-item3', created_at: time - 3.days, active: true, disabled: true) }
-    let!(:item4) { subject.create!(name: 'unfiltered-item4', created_at: time - 4.days, active: true) }
-    let!(:item5) { subject.create!(name: 'unfiltered-item5', created_at: time - 5.days) }
-    let!(:item6) { subject.create!(name: 'filtered-item6',   created_at: time - 6.days) }
-    let!(:item7) { subject.create!(name: 'unfiltered-item7', created_at: time - 7.days) }
-    let!(:item8) { subject.create!(name: 'unfiltered-item8', created_at: time - 8.days, active: true, disabled: true) }
-    let!(:item9) { subject.create!(name: 'unfiltered-item9', created_at: time - 9.days) }
+    let!(:item1) { subject.create!(title: 'unfiltered-item1', created_at: time - 1.day,  active: true) }
+    let!(:item2) { subject.create!(title: 'filtered-item2',   created_at: time - 2.days) }
+    let!(:item3) { subject.create!(title: 'unfiltered-item3', created_at: time - 3.days, active: true, disabled: true) }
+    let!(:item4) { subject.create!(title: 'unfiltered-item4', created_at: time - 4.days, active: true) }
+    let!(:item5) { subject.create!(title: 'unfiltered-item5', created_at: time - 5.days) }
+    let!(:item6) { subject.create!(title: 'filtered-item6',   created_at: time - 6.days) }
+    let!(:item7) { subject.create!(title: 'unfiltered-item7', created_at: time - 7.days) }
+    let!(:item8) { subject.create!(title: 'unfiltered-item8', created_at: time - 8.days, active: true, disabled: true) }
+    let!(:item9) { subject.create!(title: 'unfiltered-item9', created_at: time - 9.days) }
     let(:params) { { per_page: 2, foo: 'bar' } }
 
     describe 'on the first page' do

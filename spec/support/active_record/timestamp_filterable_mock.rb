@@ -10,7 +10,7 @@ class TimestampFilterableRawMock < ActiveRecord::Base
   # filter class
   class Filter
     def call(record)
-      !(record.name =~ /^unfiltered/)
+      !(record.title =~ /^unfiltered/)
     end
   end
 end
@@ -18,6 +18,6 @@ end
 class TimestampFilterableMock < TimestampFilterableRawMock
   # filter method
   def filtered?
-    disabled? || name =~ /^filtered/
+    disabled? || title =~ /^filtered/
   end
 end

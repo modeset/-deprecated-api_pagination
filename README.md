@@ -5,15 +5,14 @@ Api::Pagination
 [![Code Climate](https://codeclimate.com/repos/54df9005e30ba012930060e4/badges/e466695e9c8859eaafd2/gpa.svg)](https://codeclimate.com/repos/54df9005e30ba012930060e4/feed)
 [![Test Coverage](https://codeclimate.com/repos/54df9005e30ba012930060e4/badges/e466695e9c8859eaafd2/coverage.svg)](https://codeclimate.com/repos/54df9005e30ba012930060e4/feed)
 
-Api::Pagination is a collection of pagination scopes that follow a consistent interface so paginated collections can be
+Api::Pagination is a collection of pagination modules that follow a consistent interface so paginated items can be
 referred to throughout your application in consistent terms. This was born from the need for more complex pagination
-rules and wanting to provide consistent summaries of the pagination results.
+and wanting to provide consistent summaries of the pagination results.
 
 ## Table of Contents
 
 1. [Installation](#installation)
 2. [Usage](#usage)
-
 
 ## Installation
 
@@ -39,25 +38,28 @@ $ gem install chewy
 
 #### Simple
 
-This is your basic run of the mill page by number implementation that we're all familiar with. You can mix your own
-scopes, ask for a given page, and additionally specify how many results per page. If not specified 25 results will be
-returned per page, with a maximum of 100 results even if more are requested.
+This is your basic page by number implementation that we're all familiar with. You can mix it with your own scopes, ask
+for a given page, and additionally specify how many results per page. If not specified 25 results will be returned per
+page, with a maximum of 100 results even if more are requested.
 
 ```ruby
 class Item < ActiveRecord::Base
   include Api::Pagination::Simple
 end
 
+# 25 records, starting at page 1, natural order
+@items = Item.page
+
 # 5 records, starting at page 2, ordered by created_at ASC
 @items = Item.order(:created_at).page(2).per(5)
 
-# 5 records, starting at page 3
-@items = Item.page(page: 3, per_page: 5)
+# 100 records, starting at page 3
+@items = Item.page(page: 3, per_page: 100)
 ```
 
-Once you've called the page scope, you can begin asking questions about it's results. These are mixed into the scope
-chain directly, and so you can ask questions. In these examples, we assume we have 23 records, and have asked for page
-3 with 5 per page.
+Once you've called a pagination scope, you can begin asking questions about its results. These are mixed into the scope
+chain directly, and so you can call methods on the scope itself. In these examples, we assume we have 23 records, and
+have asked for page 3 with 5 per page.
 
 ```ruby
 @items.paginatable? # => true, if you've used the `page` scope at all.
@@ -71,7 +73,7 @@ chain directly, and so you can ask questions. In these examples, we assume we ha
 ```
 
 Additionally, you can get the various values to continue loading pages. For instance, you can get the page value for
-the first page, last page, etc.
+the first, last, next, and previous pages.
 
 ```ruby
 @items.first_page_value # => 1 - in the case of the simple paginator, this will always be 1
@@ -82,11 +84,11 @@ the first page, last page, etc.
 
 #### Timestamp
 
-This is a more robust way to paginate records when content could be added between page requests. For any real time, or
-semi-real time project this is the paginator to use.
+This is a more robust way to paginate records when content could be added between page requests. For any real-time, or
+partial real-time project this is probably the one you want to use the most.
 
-One of the challenges faced with simple number pagination is that if a new record is added, records already seen can be
-duplicated in subsequent page requests. An example of this is listing items from newest to oldest -- if a new item is
+One of the challenges faced with the simple number pagination is that if a new record is added, records already seen can
+be duplicated in subsequent page requests. An example of this is listing items from newest to oldest -- if a new item is
 created after loading page 1, but before page 2 has been loaded -- page 2 will now include the last item(s) from page 1.
 
 Paging by timestamp eliminates this problem, and any new items that are added between page loads don't cause

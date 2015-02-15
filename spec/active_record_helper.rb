@@ -5,7 +5,7 @@ ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: ':memory:'
 ActiveRecord::Base.connection.execute(<<-SQL)
   CREATE TABLE "items" (
     "id" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-    "name" string,
+    "title" string,
     "active" boolean,
     "disabled" boolean,
     "created_at" datetime,

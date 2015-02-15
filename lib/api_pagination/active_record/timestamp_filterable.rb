@@ -8,7 +8,7 @@ module Api
       TIME_STAMP_FORMAT = '%Y-%m-%dT%H:%M:%S.%N%z'
 
       def filtered?
-        raise MissingFilterMethodError, "Expected #{self.class.name} to implement a `filtered?` method."
+        raise MissingFilterMethodError, self.class.name
       end
 
       def self.included(base)
