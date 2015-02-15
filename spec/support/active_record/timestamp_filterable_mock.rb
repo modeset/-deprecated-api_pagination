@@ -1,13 +1,8 @@
-class TimestampFilterableMock < ActiveRecord::Base
+class TimestampFilterableRawMock < ActiveRecord::Base
   include Api::Pagination::TimestampFilterable
   self.table_name = 'items'
 
   scope :active, -> { where(active: true) }
-
-  # filter method
-  def filtered?
-    disabled? || name =~ /^filtered/
-  end
 
   # filter proc
   FILTER = ->(record) { record.disabled? }
@@ -17,5 +12,12 @@ class TimestampFilterableMock < ActiveRecord::Base
     def call(record)
       !(record.name =~ /^unfiltered/)
     end
+  end
+end
+
+class TimestampFilterableMock < TimestampFilterableRawMock
+  # filter method
+  def filtered?
+    disabled? || name =~ /^filtered/
   end
 end

@@ -21,6 +21,13 @@ describe Api::Pagination::TimestampFilterable do
       )
     end
 
+    it 'raises an exception if there records do not implement #filtered?' do
+      expect{ TimestampFilterableRawMock.new.filtered? }.to raise_error(
+        Api::Pagination::MissingFilterMethodError,
+        'Expected TimestampFilterableRawMock to implement a `filtered?` method.'
+      )
+    end
+
   end
 
   describe 'enumerator' do
