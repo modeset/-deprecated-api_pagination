@@ -41,7 +41,7 @@ $ gem install chewy
 You can feel free to configure all pagination modules at once, or focus on specific ones. This is the basic
 configuration that's provided by default.
 
-```
+```ruby
 Api::Pagination.configure do |config|
   # configure all pagination modules
   config.per_page_default 25 # default per page
