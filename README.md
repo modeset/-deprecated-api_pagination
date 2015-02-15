@@ -88,38 +88,38 @@ class Item < ActiveRecord::Base
 end
 
 # 25 records, starting at page 1, natural order
-@items = Item.page
+Item.page
 
 # 5 records, starting at page 2, ordered by created_at ASC
-@items = Item.order(:created_at).page(2).per(5)
+Item.order(:created_at).page(2).per(5)
 
 # 100 records, starting at page 3
-@items = Item.page(page: 3, per_page: 100)
+Item.page(page: 3, per_page: 100)
 ```
 
 Once you've called a pagination scope, you can begin asking questions about its results. These are mixed into the scope
-chain directly, and so you can call methods on the scope itself. In these examples, we assume we have 23 records, and
-have asked for page 3 with 5 per page.
+chain directly, and so you can call methods on the scope itself.
 
 ```ruby
-@items.paginatable? # => true, if you've used the `page` scope at all.
+items = Item.page(page: 3, per_page: 5)
+items.paginatable? # => true, if you've used the `page` scope at all.
 
-@items.total_count # => 23 - how many total records there are to page through.
-@items.total_pages # => 5 - the total number of pages.
-@items.total_pages_remaining # 2 - the number of pages remaining.
+items.total_count # => 23 - how many total records there are to page through.
+items.total_pages # => 5 - the total number of pages.
+items.total_pages_remaining # 2 - the number of pages remaining.
 
-@items.first_page? # false - boolean, if it's on the first page or not.
-@items.last_page? # false - boolean, if it's on the last page or not.
+items.first_page? # false - boolean, if it's on the first page or not.
+items.last_page? # false - boolean, if it's on the last page or not.
 ```
 
 Additionally, you can get the various values to continue loading pages. For instance, you can get the page value for
 the first, last, next, and previous pages.
 
 ```ruby
-@items.first_page_value # => 1 - in the simple paginator, this will always be 1
-@items.last_page_value # => 5 - page 5 would only load 3 records
-@items.prev_page_value # => 2
-@items.next_page_value # => 4
+items.first_page_value # => 1 - in the simple paginator, this will always be 1
+items.last_page_value # => 5 - page 5 would only load 3 records
+items.prev_page_value # => 2
+items.next_page_value # => 4
 ```
 
 #### Timestamp
@@ -141,21 +141,21 @@ class Item < ActiveRecord::Base
 end
 
 # 5 records, starting at the beginning, ordered by created_at DESC (newest to oldest)
-@items = Item.page_by.per(5)
-@items = Item.page_by(before: true).per(5)
-@items = Item.page_by(before: 'true', per_page: 5)
+Item.page_by.per(5)
+Item.page_by(before: true).per(5)
+Item.page_by(before: 'true', per_page: 5)
 
 # 2 records, ordered by created_at ASC (oldest to newest)
-@items = Item.page_by(after: true).per(2)
+Item.page_by(after: true).per(2)
 
 # 5 records, ordered by created_at DESC, where created_at > 2 minutes ago
-@items = Item.page_by(before: 2.minutes.ago).per(5)
+Item.page_by(before: 2.minutes.ago).per(5)
 
 # 5 records, ordered by created_at ASC, where created_at < 2 minutes ago
-@items = Item.page_by(after: 2.minutes.ago).per(5)
+Item.page_by(after: 2.minutes.ago).per(5)
 
 # 5 records, ordered by updated_at ASC
-@items = Item.page_by(after: true, column: :updated_at).per(5)
+Item.page_by(after: true, column: :updated_at).per(5)
 ```
 
 ##### Advanced Usage
@@ -238,8 +238,8 @@ class Item < ActiveRecord::Base
   end
 end
 
-# 5 records, ordered by created_at ASC -- filtered using `Item#filtered?`.
-Item.filtered_page_by(after: true, per_page: 5)
+# 5 records, ordered by created_at DESC -- filtered using `Item#filtered?`.
+Item.filtered_page_by(before: true, per_page: 5)
 
 # 25 records, ordered by created_at DESC -- filtered using a proc.
 Item.filtered_page_by(filter: ->(record) { record.disabled? })
