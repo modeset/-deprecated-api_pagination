@@ -5,6 +5,7 @@ Api::Pagination
 [![Code Climate](https://codeclimate.com/repos/54df9005e30ba012930060e4/badges/e466695e9c8859eaafd2/gpa.svg)](https://codeclimate.com/repos/54df9005e30ba012930060e4/feed)
 [![Test Coverage](https://codeclimate.com/repos/54df9005e30ba012930060e4/badges/e466695e9c8859eaafd2/coverage.svg)](https://codeclimate.com/repos/54df9005e30ba012930060e4/feed)
 [![License](https://img.shields.io/badge/license-MIT-brightgreen.svg)](http://opensource.org/licenses/MIT)
+[![Dependency Status](https://gemnasium.com/modeset/api_pagination.svg)](https://gemnasium.com/modeset/api_pagination)
 
 Api::Pagination is a collection of pagination modules that follow a consistent interface so paginated items can be
 referred to throughout your application in consistent terms. This was born from the need for more complex pagination
