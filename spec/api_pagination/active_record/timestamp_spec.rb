@@ -28,137 +28,137 @@ describe Api::Pagination::Timestamp do
   end
 
   describe 'scope (using before)' do
-    let(:scope) { subject.page_by(before: time).per(2) }
     before do
       5.times { |i| subject.create!(created_at: time - i.days) }
     end
 
-    it 'knows when it is paginatable' do
-      expect(scope.paginatable?).to be_truthy
+    context 'using before' do
+      let(:scope) { subject.page_by(before: time).per(2) }
+
+      it 'knows when it is paginatable' do
+        expect(scope.paginatable?).to be_truthy
+      end
+
+      it 'knows the total count of records' do
+        expect(scope.total_count).to eq(5)
+      end
+
+      it 'knows the total pages based on how many per page' do
+        expect(scope.total_pages).to eq(3)
+      end
+
+      it 'knows how many pages remain' do
+        expect(scope.total_pages_remaining).to eq(1)
+      end
+
+      it 'knows what the first page is' do
+        expect(scope.first_page_value).to eq(true)
+      end
+
+      it 'knows what the last page is' do
+        expect(scope.last_page_value).to eq(true)
+      end
+
+      it 'knows what the next page is' do
+        expect(scope.next_page_value).to eq('2012-10-18T00:00:00.000000000+0000')
+      end
+
+      it 'knows what the previous page is' do
+        expect(scope.prev_page_value).to eq('2012-10-19T00:00:00.000000000+0000')
+      end
+
+      it 'knows when it is on the first page' do
+        scope = subject.page_by.per(2)
+        expect(scope.first_page?).to be_truthy
+        expect(Date.parse(scope.prev_page_value)).to eq subject.order(created_at: :desc).first.created_at
+
+        scope = subject.page_by(before: time).per(2)
+        expect(scope.first_page?).to be_falsey
+        expect(scope.prev_page_value).to_not be_nil
+      end
+
+      it 'knows when it is on the last page' do
+        scope = subject.page_by(before: time - 5.days).per(2)
+        expect(scope.last_page?).to be_truthy
+        expect(scope.next_page_value).to be_nil
+
+        scope = subject.page_by.per(2)
+        expect(scope.last_page?).to be_falsey
+        expect(scope.next_page_value).to_not be_nil
+      end
+
+      it 'allows specifying a different tables column' do
+        scope = subject.page_by(before: time, column: 'other_table.created_at')
+        expect(scope.to_sql).to include("other_table.created_at < '2012-10-20 00:00:00.000000'")
+        expect(scope.to_sql).to include('other_table.created_at desc')
+      end
+
+      it 'allows providing a callback for the next/prev pages' do
+        proc = ->(record) { record.created_at.to_s + '!!!!!!' }
+        scope = subject.page_by(before: time - 2.days, page_value: proc).per(1)
+        expect(scope.next_page_value).to eq('2012-10-17 00:00:00 UTC!!!!!!')
+        expect(scope.prev_page_value).to eq('2012-10-17 00:00:00 UTC!!!!!!')
+      end
+
     end
 
-    it 'knows the total count of records' do
-      expect(scope.total_count).to eq(5)
+    context 'using after' do
+      let(:scope) { subject.page_by(after: time - 3.days).per(2) }
+
+      it 'knows when it is paginatable' do
+        expect(scope.paginatable?).to be_truthy
+      end
+
+      it 'knows the total count of records' do
+        expect(scope.total_count).to eq(5)
+      end
+
+      it 'knows the total pages based on how many per page' do
+        expect(scope.total_pages).to eq(3)
+      end
+
+      it 'knows how many pages remain' do
+        expect(scope.total_pages_remaining).to eq(1)
+      end
+
+      it 'knows what the next page is' do
+        expect(scope.next_page_value).to eq('2012-10-19T00:00:00.000000000+0000')
+      end
+
+      it 'knows what the previous page is' do
+        expect(scope.prev_page_value).to eq('2012-10-18T00:00:00.000000000+0000')
+      end
+
+      it 'knows when it is on the first page' do
+        scope = subject.page_by(after: time - 5.days).per(2)
+        expect(scope.first_page?).to be_truthy
+
+        scope = subject.page_by(after: time - 1.day).per(2)
+        expect(scope.first_page?).to be_falsey
+      end
+
+      it 'knows when it is on the last page' do
+        scope = subject.page_by(after: time).per(2)
+        expect(scope.last_page?).to be_truthy
+
+        scope = subject.page_by(after: time - 3.days).per(2)
+        expect(scope.last_page?).to be_falsey
+      end
+
+      it 'allows specifying a different tables column' do
+        scope = subject.page_by(after: time, column: 'other_table.created_at')
+        expect(scope.to_sql).to include("other_table.created_at > '2012-10-20 00:00:00.000000'")
+        expect(scope.to_sql).to include('other_table.created_at asc')
+      end
+
+      it 'allows providing a callback for the next/prev pages' do
+        proc = ->(record) { record.created_at.to_s + '!!!!!!' }
+        scope = subject.page_by(after: time - 2.days, page_value: proc).per(1)
+        expect(scope.next_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
+        expect(scope.prev_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
+      end
+
     end
-
-    it 'knows the total pages based on how many per page' do
-      expect(scope.total_pages).to eq(3)
-    end
-
-    it 'knows how many pages remain' do
-      expect(scope.total_pages_remaining).to eq(1)
-    end
-
-    it 'knows what the first page is' do
-      expect(scope.first_page_value).to eq(true)
-    end
-
-    it 'knows what the last page is' do
-      expect(scope.last_page_value).to eq(true)
-    end
-
-    it 'knows what the next page is' do
-      expect(scope.next_page_value).to eq('2012-10-18T00:00:00.000000000+0000')
-    end
-
-    it 'knows what the previous page is' do
-      expect(scope.prev_page_value).to eq('2012-10-19T00:00:00.000000000+0000')
-    end
-
-    it 'knows when it is on the first page' do
-      scope = subject.page_by.per(2)
-      expect(scope.first_page?).to be_truthy
-      expect(Date.parse(scope.prev_page_value)).to eq subject.order(created_at: :desc).first.created_at
-
-      scope = subject.page_by(before: time).per(2)
-      expect(scope.first_page?).to be_falsey
-      expect(scope.prev_page_value).to_not be_nil
-    end
-
-    it 'knows when it is on the last page' do
-      scope = subject.page_by(before: time - 5.days).per(2)
-      expect(scope.last_page?).to be_truthy
-      expect(scope.next_page_value).to be_nil
-
-      scope = subject.page_by.per(2)
-      expect(scope.last_page?).to be_falsey
-      expect(scope.next_page_value).to_not be_nil
-    end
-
-    it 'allows specifying a different tables column' do
-      scope = subject.page_by(before: time, column: 'other_table.created_at')
-      expect(scope.to_sql).to include("other_table.created_at < '2012-10-20 00:00:00.000000'")
-      expect(scope.to_sql).to include('other_table.created_at desc')
-    end
-
-    it 'allows providing a callback for the next/prev pages' do
-      proc = ->(record) { record.created_at.to_s + '!!!!!!' }
-      scope = subject.page_by(before: time - 2.days, page_value: proc).per(1)
-      expect(scope.next_page_value).to eq('2012-10-17 00:00:00 UTC!!!!!!')
-      expect(scope.prev_page_value).to eq('2012-10-17 00:00:00 UTC!!!!!!')
-    end
-
-  end
-
-  describe 'scope (using after)' do
-    let(:scope) { subject.page_by(after: time - 3.days).per(2) }
-    before do
-      5.times { |i| subject.create!(created_at: time - i.days) }
-    end
-
-    it 'knows when it is paginatable' do
-      expect(scope.paginatable?).to be_truthy
-    end
-
-    it 'knows the total count of records' do
-      expect(scope.total_count).to eq(5)
-    end
-
-    it 'knows the total pages based on how many per page' do
-      expect(scope.total_pages).to eq(3)
-    end
-
-    it 'knows how many pages remain' do
-      expect(scope.total_pages_remaining).to eq(1)
-    end
-
-    it 'knows what the next page is' do
-      expect(scope.next_page_value).to eq('2012-10-19T00:00:00.000000000+0000')
-    end
-
-    it 'knows what the previous page is' do
-      expect(scope.prev_page_value).to eq('2012-10-18T00:00:00.000000000+0000')
-    end
-
-    it 'knows when it is on the first page' do
-      scope = subject.page_by(after: time - 5.days).per(2)
-      expect(scope.first_page?).to be_truthy
-
-      scope = subject.page_by(after: time - 1.day).per(2)
-      expect(scope.first_page?).to be_falsey
-    end
-
-    it 'knows when it is on the last page' do
-      scope = subject.page_by(after: time).per(2)
-      expect(scope.last_page?).to be_truthy
-
-      scope = subject.page_by(after: time - 3.days).per(2)
-      expect(scope.last_page?).to be_falsey
-    end
-
-    it 'allows specifying a different tables column' do
-      scope = subject.page_by(after: time, column: 'other_table.created_at')
-      expect(scope.to_sql).to include("other_table.created_at > '2012-10-20 00:00:00.000000'")
-      expect(scope.to_sql).to include('other_table.created_at asc')
-    end
-
-    it 'allows providing a callback for the next/prev pages' do
-      proc = ->(record) { record.created_at.to_s + '!!!!!!' }
-      scope = subject.page_by(after: time - 2.days, page_value: proc).per(1)
-      expect(scope.next_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
-      expect(scope.prev_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
-    end
-
   end
 
   describe 'paginating' do

@@ -3,8 +3,10 @@ require 'api_pagination/common_interface'
 
 require 'api_pagination/simple'
 require 'api_pagination/timestamp'
+require 'api_pagination/timestamp_filterable'
 
 module Api::Pagination
+  class MissingFilterMethodError < StandardError; end
   class InvalidTimestampError < StandardError
     def initialize(value)
       super [
@@ -13,5 +15,4 @@ module Api::Pagination
       ].join(' ')
     end
   end
-
 end

@@ -56,8 +56,33 @@ MyModel.page_by(after: 2.minutes.ago).per(5) # 5 records, ordered by created_at 
 MyModel.page_by(after: true, column: :updated_at).per(5) # 5 records, ordered by updated_at ASC
 ```
 
-TODO: document more complex usages with the `page_value` callback, and how to use pagination with join tables.
+- TODO: document more complex usages with the `page_value` callback, and how to accomplish pagination with join tables.
 
+### TimestampFilterable Paginator
+
+The TimestampFilterable paginator will load 2 pages of records and filter them down based on filtering logic, and will
+load additional pages if too many records have been filtered it. It primarily behaves as the Timestamp paginator, but
+expects a filter to be provided, or calls a `filtered?` method on each of the active record objects as it generates
+the page.
+
+This is a slightly different concept than the Simple and Timestamp paginators, in that it uses an enumerable instance
+that masquerades as an active record collection, but includes the common paginator interface.
+
+```ruby
+class MyModel < ActiveRecord::Base
+  include Api::Pagination::TimestampFilterable
+  def filtered?
+    id > 3
+  end
+end
+
+MyModel.filtered_page_by(before: true).per(5) # 5 records, ordered by created_at DESC
+```
+
+- TODO: document more complex usages with the `filter:` option using a proc or a class that responds to `call`.
+- TODO: document how the filtered api is the end of the scope chain, but accepts a block to add additional scoping to.
+- TODO: explain the limitations of using the enumerator, and the complications that can arise if not understood.
+- TODO: explain advanced usage, like using join tables for order/filtering.
 
 ## License
 
