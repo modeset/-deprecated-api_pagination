@@ -131,15 +131,15 @@ There are times, especially within an API that you may want to get a collection 
 table. This can be tricky, but is taken into consideration. This example is a bit complex, but shows how it can be
 accomplished using the `column` option, and `page_value` callback option.
 
-First, if you provide a `column` option as a symbol, it is assumed to mean a column on the current resource.
+If you provide a `column` option as a symbol, it is assumed to mean a column on the current resource.
 
 ```ruby
 Item.page_by(column: :updated_at).to_sql
 # => SELECT "items".* FROM "items" ORDER BY "items"."updated_at" DESC LIMIT 25
 ```
 
-If you use a string however, you can specify any column on any table in the query. In our example, we want to order
-our items by when their creator was last updated.
+If you provide a `column` option as a string however, you can specify any column on any table included the query. In our
+example, we want to order our items by when their creator was last updated (not the best example, but you get the idea).
 
 ```ruby
 Item.joins(:creator).page_by(column: 'creators.updated_at').per(2).to_sql
@@ -148,9 +148,9 @@ Item.joins(:creator).page_by(column: 'creators.updated_at').per(2).to_sql
 #    ORDER BY creators.updated_at desc LIMIT 2
 ```
 
-In cases like this, you must provide a `page_value` callback in the options, otherwise getting the values needed for the
-next/prev pages won't work -- since it doesn't know which attribute to use, and it doesn't exist on the records we've
-actually selected.
+In cases like this, you must also provide a `page_value` callback in the options, otherwise getting the values needed
+for the next/prev pages won't work -- since there's no way to know which attribute to use, and it doesn't exist on the
+records we've actually selected.
 
 ```ruby
 page_value_callback = ->(item) { item.creator.updated_at }
@@ -158,8 +158,10 @@ page_value_callback = ->(item) { item.creator.updated_at }
 @items.next_page_value # => the updated_at column for the creator of the last item in the page.
 ```
 
-In very complex examples of the above, you may need to utilize a custom select to get load in a psuedo attribute which
-you can then use in the `page_value` callback.
+So you can see how the `column` and `page_value` callback options work together in complex ways. In even more complex
+scenarios, you can utilize a custom select and psuedo attribute on the records. In the next example, we want to list the
+items in the order that they have last been viewed. It's expected that if you're dealing with scenarios like these, you
+know what you're doing, and can probably figure it out given a fairly terse example.
 
 ```ruby
 options = {
@@ -170,26 +172,28 @@ Item.all_viewers.select('items.*, view.created_at AS view_created_at').page_by(o
 ```
 
 
-### TimestampFilterable Paginator
+#### TimestampFilterable
 
-This guy is basically the same as the Timestamp implementation, but will filter out results after they've been loaded.
-We found that it was considerably faster to filter results after loading them. This is probably only useful when dealing
-with very complex joins, and queries dealing with many millions/billions of records.
+This is basically the same as the Timestamp implementation, but will filter out results after they've been loaded. We
+found it to be considerably faster to filter results after loading them in cases of very complex joins, and queries
+dealing with many millions/billions of records.
 
-It works by loading 2 pages worth of records, filtering them down programatically, and then using an Enumerable to
-provide the results back. So by default, if you ask for 10 items per page, it will do a query to load 20, and then
-filter that set down based on the filter that you've specified. If it has filtered more than half of those records, an
-additional query is performed to load another collection, and begins filtering that collection until the total number
-desired is achieved.
+It works by loading 2 pages worth of records, filtering them down manually, and then using an Enumerable to provide the
+results with an improved interface. By default, if you ask for 10 items per page, it will do a query to load 20 and
+filter that set down to 10 based on the filter that you've specified -- it's a pessimistic multiplier. If it has
+filtered more records than was asked for an additional query is performed to load more and filters the additional
+records until the total number desired is achieved. This is done using recursion, and so can be expensive if you think
+many records would be filtered before the desired count is fulfilled. You can modify the multiplier to load many more
+records in cases like this.
 
-A filter is expected, and this can be accomplished in one of three ways. When filtering a collection of models, it will
-attempt to call a `filtered?` method on each record unless a `filter` option is provided. The `filter` option is
-expected to respond to `.call`, and so a proc or instance that implements `.call` can be used for more complex filtering
-logic.
+When using this paginator, a filter is expected, and this can be accomplished in one of three ways. When filtering a
+collection of models, it will attempt to call a `filtered?` method on each record unless an alternate `filter` option is
+provided. The `filter` option is expected to respond to `.call`, and so a proc or instance that implements `.call` can
+be used for more complex filtering logic.
 
-This paginator uses a slightly different concept than the Simple and Timestamp paginators, in that it uses an Enumerable
+Note: This paginator uses a different concept than the Simple and Timestamp paginators, in that it uses an Enumerable
 that masquerades to some extent as an ActiveRecord collection, but also includes the common paginator interface. This
-means that when you call the `filtered_page_by` method, you are done with the scope chain, and because of this, allows
+means that when you call the `filtered_page_by` method, you are done with the scope chain, and because of this it allows
 passing a block where additional scopes can be added.
 
 ```ruby
@@ -223,9 +227,6 @@ Item.filtered_page_by(filter: Item::Filterer.new)
 # 2 records, additional scope, ordered by created_at ASC -- filtered using `item.filtered?`.
 Item.filtered_page_by(per_page: 2, after: true) { |scope| scope.active }
 ```
-
-- TODO: explain the limitations of using the enumerator, and the complications that can arise if not understood.
-- TODO: explain advanced usage, like using join tables for order/filtering.
 
 
 ## License
