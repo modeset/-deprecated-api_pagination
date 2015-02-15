@@ -25,9 +25,15 @@ describe Api::Pagination::Timestamp do
       )
     end
 
+    it 'does not allow sql injections' do
+      scope = subject.page_by(after: time, column: '1); DELETE	FROM "users"; other_table.created_at')
+      expect(scope.to_sql).to include(%{"1 DELETEFROMusers other_table"."created_at" > '2012-10-20 00:00:00.000000'})
+      expect(scope.to_sql).to include(%{"1 DELETEFROMusers other_table"."created_at" ASC})
+    end
+
   end
 
-  describe 'scope (using before)' do
+  describe 'scope' do
     before do
       5.times { |i| subject.create!(created_at: time - i.days) }
     end
@@ -89,8 +95,8 @@ describe Api::Pagination::Timestamp do
 
       it 'allows specifying a different tables column' do
         scope = subject.page_by(before: time, column: 'other_table.created_at')
-        expect(scope.to_sql).to include("other_table.created_at < '2012-10-20 00:00:00.000000'")
-        expect(scope.to_sql).to include('other_table.created_at desc')
+        expect(scope.to_sql).to include(%{"other_table"."created_at" < '2012-10-20 00:00:00.000000'})
+        expect(scope.to_sql).to include(%{"other_table"."created_at" DESC})
       end
 
       it 'allows providing a callback for the next/prev pages' do
@@ -147,8 +153,8 @@ describe Api::Pagination::Timestamp do
 
       it 'allows specifying a different tables column' do
         scope = subject.page_by(after: time, column: 'other_table.created_at')
-        expect(scope.to_sql).to include("other_table.created_at > '2012-10-20 00:00:00.000000'")
-        expect(scope.to_sql).to include('other_table.created_at asc')
+        expect(scope.to_sql).to include(%{"other_table"."created_at" > '2012-10-20 00:00:00.000000'})
+        expect(scope.to_sql).to include(%{"other_table"."created_at" ASC})
       end
 
       it 'allows providing a callback for the next/prev pages' do

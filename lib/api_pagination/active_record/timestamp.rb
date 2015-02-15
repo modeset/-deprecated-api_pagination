@@ -22,29 +22,17 @@ module Api
 
         def add_timestamp_page_scope(scope, options)
           time = parse_time(options[:before] || options[:after])
-          scope = scope.where(*where_for_timestamp_page(options, time)) if time
-
-          scope.order(order_for_timestamp_page(options))
+          scope = scope.where(where_for_timestamp_page(options, time)) if time
+          scope.order(options[:query_column].send(options[:order]))
         end
 
         private
 
         def where_for_timestamp_page(options, time)
-          if options[:column].is_a?(String)
-            ["#{options[:column]} #{options[:before].present? ? '< ?' : '> ?'}", time]
+          if options[:before].present?
+            options[:query_column].lt(time)
           else
-            column = arel_table[options[:column]]
-            [options[:before].present? ? column.lt(time) : column.gt(time)]
-          end
-        end
-
-        def order_for_timestamp_page(options)
-          if options[:column].is_a?(String)
-            "#{options[:column]} #{options[:order]}"
-          else
-            opts = {}
-            opts[options[:column]] = options[:order]
-            opts
+            options[:query_column].gt(time)
           end
         end
 
@@ -52,13 +40,23 @@ module Api
           options = params.dup || {}
           options[:column] ||= :created_at
           options[:order] = options[:after].present? ? :asc : :desc
+          options[:query_column] = sanitized_column(options[:column])
           options
+        end
+
+        def sanitized_column(column)
+          table_name, column_name = column.to_s.gsub(/[\s";\(\)]+/, '').split('.')
+          if table_name && column_name
+            Arel::Table.new(table_name, arel_engine)[column_name]
+          else
+            arel_table[column]
+          end
         end
 
         def parse_time(value)
           Time.zone.parse(value.to_s)
         rescue ArgumentError
-          raise Api::Pagination::InvalidTimestampError, value
+          raise InvalidTimestampError, value
         end
       end
 
