@@ -40,8 +40,7 @@ $ gem install chewy
 #### Simple
 
 This is your basic page by number implementation that we're all familiar with. You can mix it with your own scopes, ask
-for a given page, and additionally specify how many results per page. If not specified 25 results will be returned per
-page, with a maximum of 100 results even if more are requested.
+for a given page, and additionally specify how many results per page.
 
 ```ruby
 class Item < ActiveRecord::Base
@@ -77,25 +76,24 @@ Additionally, you can get the various values to continue loading pages. For inst
 the first, last, next, and previous pages.
 
 ```ruby
-@items.first_page_value # => 1 - in the case of the simple paginator, this will always be 1
+@items.first_page_value # => 1 - in the simple paginator, this will always be 1
 @items.last_page_value # => 5 - page 5 would only load 3 records
-@items.next_page_value # => 4
 @items.prev_page_value # => 2
+@items.next_page_value # => 4
 ```
 
 #### Timestamp
 
-This is a more robust way to paginate records when content could be added between page requests. For any real-time, or
-partial real-time project this is probably the one you want to use the most.
+Paging by timestamps is a more robust way to paginate records when content could be added between page requests. For any
+real-time, or partial real-time case this is probably the pagination method you'll want to use the most.
 
 One of the challenges faced with the simple number pagination is that if a new record is added, records already seen can
 be duplicated in subsequent page requests. An example of this is listing items from newest to oldest -- if a new item is
-created after loading page 1, but before page 2 has been loaded -- page 2 will now include the last item(s) from page 1.
+created after loading page 1 but before page 2 has been loaded -- page 2 will now include the last item(s) from page 1.
 
-Paging by timestamp eliminates this problem, and any new items that are added between page loads don't cause
-duplication. At the same time, you may want to load additional items, which is why you can specify `before` or `after`
-when paging by timestamp. If you don't provide any pagination arguments, the first page is assumed (in descending
-order), with a default of 25 items, with a maximum of 100.
+Paging by timestamp eliminates this problem, and allows you to load additional items in both directions from what you've
+already loaded. You can specify `before` or `after` when paging by timestamp, and it will dictate the direction that the
+results will be returned.
 
 ```ruby
 class Item < ActiveRecord::Base
@@ -122,74 +120,65 @@ end
 
 ##### Advanced Usage
 
-There are times, especially within an API that you may want to get a collection of one object, but order it by a join
-table. This can be tricky, but is taken into consideration. This example is a bit complex, but shows how it can be
-accomplished using the `column` option, and `page_value` callback option.
+There are times, especially within an API where you may want to render a collection of one type of resource, but ordered
+a different resource -- by a join table. This can be tricky, but is taken into consideration here. This example is a bit
+complex, but shows how it can be accomplished using the `column` option, and `page_value` callback option.
 
-If you provide a `column` option as a symbol, it is assumed to mean a column on the current resource.
+If you provide a `column` option as a symbol, it is assumed to mean a column on the current resource. If you provide a
+string (eg. 'table_name.column_name') the WHERE and ORDER clauses will use that table and column after being
+sanitized.
 
 ```ruby
 Item.page_by(column: :updated_at).to_sql
 # => SELECT "items".* FROM "items" ORDER BY "items"."updated_at" DESC LIMIT 25
 ```
 
-If you provide a `column` option as a string however, you can specify any column on any table included the query. In our
-example, we want to order our items by when their creator was last updated (not the best example, but you get the idea).
-
 ```ruby
-Item.joins(:creator).page_by(column: 'creators.updated_at').per(2).to_sql
-# => SELECT  "items".* FROM "items"
-#    INNER JOIN "creators" ON "creators"."id" = "items"."creator_id"
-#    ORDER BY creators.updated_at desc LIMIT 2
+Item.joins(:likes).page_by(column: 'likes.created_at').per(4).to_sql
+# => SELECT "items".* FROM "items"
+#    INNER JOIN "likes" ON "likes"."item_id" = "items"."id"
+#    ORDER BY likes.created_at DESC LIMIT 4
 ```
 
 In cases like this, you must also provide a `page_value` callback in the options, otherwise getting the values needed
-for the next/prev pages won't work -- since there's no way to know which attribute to use, and it doesn't exist on the
-records we've actually selected.
-
-```ruby
-page_value_callback = ->(item) { item.creator.updated_at }
-@items = Item.joins(:creator).page_by(column: 'creators.updated_at', page_value: page_value_callback).per(2)
-@items.next_page_value # => the updated_at column for the creator of the last item in the page.
-```
-
-So you can see how the `column` and `page_value` callback options work together in complex ways. In even more complex
-scenarios, you can utilize a custom select and psuedo attribute on the records. In the next example, we want to list the
-items in the order that they have last been viewed. It's expected that if you're dealing with scenarios like these, you
-know what you're doing, and can probably figure it out given a fairly terse example.
+for the next/prev pages is impossible -- since there's no way to know which attribute to use, and it doesn't exist on
+the records we've actually selected. This is the full example of using virtual attributes and a custom select.
 
 ```ruby
 options = {
-  column: 'views.created_at',
-  page_value: ->(item) { item.read_attribute(:view_created_at) }
+  column: 'likes.created_at',
+  page_value: ->(item) { item.read_attribute(:like_created_at) },
+  per_page: 2
 }
-Item.all_viewers.select('items.*, view.created_at AS view_created_at').page_by(options)
+items = Item.joins(:likes).select('items.*, likes.created_at AS like_created_at').page_by(options)
+items.next_page_value # => the created_at column for the like of the last item in the page.
 ```
 
 
 #### TimestampFilterable
 
-This is basically the same as the Timestamp implementation, but will filter out results after they've been loaded. We
+This is basically the same as the Timestamp implementation, but will filter out results after they've been queried. We
 found it to be considerably faster to filter results after loading them in cases of very complex joins, and queries
 dealing with many millions/billions of records.
 
 It works by loading 2 pages worth of records, filtering them down manually, and then using an Enumerable to provide the
-results with an improved interface. By default, if you ask for 10 items per page, it will do a query to load 20 and
-filter that set down to 10 based on the filter that you've specified -- it's a pessimistic multiplier. If it has
-filtered more records than was asked for an additional query is performed to load more and filters the additional
-records until the total number desired is achieved. This is done using recursion, and so can be expensive if you think
-many records would be filtered before the desired count is fulfilled. You can modify the multiplier to load many more
-records in cases like this.
+results with an enhanced interface. By default, if you ask for 10 items per page, it will do a query to load 20 and then
+filter that set down to 10 based on the filter that you've specified -- it's a pessimistic multiplier.
+
+If more records have been filtered than the number asked for, additional queries are performed until the end of the data
+has been reached, or enough to fullfil the request have been loaded. This is done using recursion, and so can be highly
+expensive if you think many records would be filtered before the desired count is fulfilled. You can modify the
+multiplier to load many more pages of records in cases like this.
 
 When using this paginator, a filter is expected, and this can be accomplished in one of three ways. When filtering a
 collection of models, it will attempt to call a `filtered?` method on each record unless an alternate `filter` option is
-provided. The `filter` option is expected to respond to `.call`, and so a proc or instance that implements `.call` can
-be used for more complex filtering logic.
+provided. The `filter` option is expected to respond to `.call`, so a proc or instance that implements `.call` can be
+used for more complex filtering logic.
 
 Note: This paginator uses a different concept than the Simple and Timestamp paginators, in that it uses an Enumerable
 that masquerades to some extent as an ActiveRecord collection, but also includes the common paginator interface. This
-means that when you call the `filtered_page_by` method, you are done with the scope chain, and because of this it allows
-passing a block where additional scopes can be added.
+means that when you call the `filtered_page_by` method, you are done with the scope chain, and because of this you can
+pass a block where additional scopes can be added.
 
 ```ruby
 class Item < ActiveRecord::Base
@@ -209,18 +198,17 @@ class Item < ActiveRecord::Base
   end
 end
 
-# 5 records, ordered by created_at DESC -- filtered using `item.filtered?`.
-Item.filtered_page_by(before: true, per_page: 5)
-Item.filtered_page_by(before: 'true', per_page: 5)
+# 5 records, ordered by created_at ASC -- filtered using `Item#filtered?`.
+Item.filtered_page_by(after: true, per_page: 5)
 
 # 25 records, ordered by created_at DESC -- filtered using a proc.
 Item.filtered_page_by(filter: ->(record) { record.disabled? })
 
-# 25 records, ordered by created_at DESC -- filtered using a class instance.
+# 25 records, ordered by created_at DESC -- filtered using an instance.
 Item.filtered_page_by(filter: Item::Filterer.new)
 
-# 2 records, additional scope, ordered by created_at ASC -- filtered using `item.filtered?`.
-Item.filtered_page_by(per_page: 2, after: true) { |scope| scope.active }
+# 2 records, additional scope, ordered by created_at ASC.
+Item.filtered_page_by(after: true, per_page: 2) { |scope| scope.active }
 ```
 
 

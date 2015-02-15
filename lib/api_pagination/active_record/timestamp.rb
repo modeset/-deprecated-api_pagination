@@ -23,7 +23,8 @@ module Api
         def add_timestamp_page_scope(scope, options)
           time = parse_time(options[:before] || options[:after])
           scope = scope.where(where_for_timestamp_page(options, time)) if time
-          scope.order(options[:query_column].send(options[:order]))
+          sql = options[:query_column].send(options[:order]).to_sql.gsub('"', '')
+          scope.order(sql)
         end
 
         private
@@ -55,7 +56,7 @@ module Api
 
         def parse_time(value)
           Time.zone.parse(value.to_s)
-        rescue ArgumentError
+        rescue
           raise InvalidTimestampError, value
         end
       end

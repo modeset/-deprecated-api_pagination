@@ -6,42 +6,133 @@ describe Api::Pagination::Timestamp do
 
   describe 'api' do
 
-    it 'allows paginating' do
-      order_sql = 'BY "items"."created_at" DESC LIMIT 10'
-      before_sql = '"items"."created_at" < \'2012-10-20 00:00:00.000000\''
-      after_sql = '"items"."created_at" > \'2012-10-20 00:00:00.000000\''
-      expect(subject.page_by(per_page: 10).to_sql).to include(order_sql)
-      expect(subject.page_by(before: time).to_sql).to include(before_sql)
-      expect(subject.page_by(after: time).to_sql).to include(after_sql)
+    it 'has a default order and limit' do
+      expect(subject.page_by.to_sql).to include('items.created_at DESC')
+      expect(subject.page_by.limit_value).to eq(25)
+    end
 
-      scope = subject.page_by.per(5)
-      expect(scope.limit_value).to eq(5)
+    it 'limits the amount of records requested to 100' do
+      expect(subject.page_by.per(200).limit_value).to eq(100)
+    end
+
+    it 'allows specifying a before option and how many per page' do
+      page = subject.page_by(before: true).per(10)
+      expect(page.to_sql).to include('items.created_at DESC')
+      expect(page.limit_value).to eq(10)
+
+      page = subject.page_by(before: 'true', per_page: 20)
+      expect(page.to_sql).to include('items.created_at DESC')
+      expect(page.limit_value).to eq(20)
+
+      page = subject.page_by(before: time).per(12)
+      expect(page.to_sql).to include(%{"items"."created_at" < '2012-10-20 00:00:00.000000'})
+      expect(page.limit_value).to eq(12)
+    end
+
+    it 'allows specifying an after option and how many per page' do
+      page = subject.page_by(after: true).per(10)
+      expect(page.to_sql).to include('items.created_at ASC')
+      expect(page.limit_value).to eq(10)
+
+      page = subject.page_by(after: 'true', per_page: 20)
+      expect(page.to_sql).to include('items.created_at ASC')
+      expect(page.limit_value).to eq(20)
+
+      page = subject.page_by(after: time).per(12)
+      expect(page.to_sql).to include(%{"items"."created_at" > '2012-10-20 00:00:00.000000'})
+      expect(page.limit_value).to eq(12)
+    end
+
+    it 'allows specifying a different column to sort by' do
+      page = subject.page_by(before: true, column: :updated_at)
+      expect(page.to_sql).to include('items.updated_at DESC')
+
+      page = subject.page_by(after: true, column: :updated_at)
+      expect(page.to_sql).to include('items.updated_at ASC')
+
+      page = subject.page_by(before: time, column: 'other_table.updated_at')
+      expect(page.to_sql).to include('other_table.updated_at DESC')
+      expect(page.to_sql).to include(%{"other_table"."updated_at" < '2012-10-20 00:00:00.000000'})
+
+      page = subject.page_by(after: time, column: 'other_table.updated_at')
+      expect(page.to_sql).to include('other_table.updated_at ASC')
+      expect(page.to_sql).to include(%{"other_table"."updated_at" > '2012-10-20 00:00:00.000000'})
+    end
+
+    it 'disregards times that are not parseable' do
+      page = subject.page_by(before: 'wasd')
+      expect(page.to_sql).not_to include(%{WHERE})
+
+      page = subject.page_by(after: 'wasd')
+      expect(page.to_sql).not_to include(%{WHERE})
     end
 
     it 'raises an exception when the timestamp is invalid' do
       expect{ subject.page_by(before: time.to_f) }.to raise_error(
-        Api::Pagination::InvalidTimestampError,
-        "Invalid time value #{time.to_f}, expected string matching %Y-%m-%dT%H:%M:%S.%N%z."
-      )
+          Api::Pagination::InvalidTimestampError,
+          "Invalid time value #{time.to_f}, expected string matching %Y-%m-%dT%H:%M:%S.%N%z."
+        )
     end
 
     it 'does not allow sql injections' do
-      scope = subject.page_by(after: time, column: '1); DELETE	FROM "users"; other_table.created_at')
-      expect(scope.to_sql).to include(%{"1 DELETEFROMusers other_table"."created_at" > '2012-10-20 00:00:00.000000'})
-      expect(scope.to_sql).to include(%{"1 DELETEFROMusers other_table"."created_at" ASC})
+      page = subject.page_by(after: time, column: '1); DELETE	FROM "users"; other_table.created_at')
+      expect(page.to_sql).to include(%{"1 DELETEFROMusers other_table"."created_at" > '2012-10-20 00:00:00.000000'})
+      expect(page.to_sql).to include(%{1 DELETEFROMusers other_table.created_at ASC})
     end
 
+    describe 'advanced usage' do
+      let!(:archer) { User.create!(name: 'archer') }
+      let!(:item2) { Item.create!(user: archer, title: 'item-2') }
+      let!(:item1) { Item.create!(user: archer, title: 'item-1') }
+
+      let!(:lana) { User.create!(name: 'lana') }
+      let!(:item4) { Item.create!(user: lana, title: 'item-4') }
+      let!(:item3) { Item.create!(user: lana, title: 'item-3') }
+
+      let!(:like1) { Like.create!(user: archer, item: item3, created_at: time + 2.days) }
+      let!(:like2) { Like.create!(user: archer, item: item4, created_at: time + 3.days) }
+
+      it 'allows paging using join and include scenarios' do
+        items = Item.joins(:likes).page_by(column: 'likes.created_at').per(4)
+        expect(items).to eq([item4, item3])
+        expect(items.next_page_value).to eq(nil)
+
+        items = Item.joins(:likes).page_by(after: true, column: 'likes.created_at').per(4)
+        expect(items).to eq([item3, item4])
+        expect(items.next_page_value).to eq(nil)
+
+        items = Item.includes(:likes).page_by(column: 'likes.created_at').per(3)
+        expect(items).to eq([item4, item3, item2])
+        expect(items.next_page_value).to eq(nil)
+
+        items = Item.includes(:likes).page_by(after: true, column: 'likes.created_at').per(3)
+        expect(items).to eq([item2, item1, item3])
+        expect(items.next_page_value).to eq(nil)
+      end
+
+      it 'allows even more complex join functionality using the page value callback' do
+        scope = Item.joins(:likes).select('items.*, likes.created_at AS like_created_at')
+        value = ->(item) { item.read_attribute('like_created_at') }
+        items = scope.page_by(after: true, column: 'likes.created_at', page_value: value).per(4)
+        expect(items).to eq([item3, item4])
+        expect(items.prev_page_value).to eq('2012-10-22 00:00:00.000000')
+        expect(items.next_page_value).to eq('2012-10-23 00:00:00.000000')
+      end
+
+    end
   end
 
-  describe 'scope' do
+  describe 'pagination' do
     before do
-      5.times { |i| subject.create!(created_at: time - i.days) }
+      5.times { |i| subject.create!(created_at: time - i.days, updated_at: time - i.days) }
     end
 
-    context 'using before' do
+    describe 'scope using before' do
       let(:scope) { subject.page_by(before: time).per(2) }
 
-      it 'knows when it is paginatable' do
+      it 'knows that it is paginatable' do
+        expect { subject.paginatable? }.to raise_error
+        expect { subject.new.paginatable? }.to raise_error
         expect(scope.paginatable?).to be_truthy
       end
 
@@ -49,7 +140,7 @@ describe Api::Pagination::Timestamp do
         expect(scope.total_count).to eq(5)
       end
 
-      it 'knows the total pages based on how many per page' do
+      it 'knows the total number of pages' do
         expect(scope.total_pages).to eq(3)
       end
 
@@ -74,44 +165,38 @@ describe Api::Pagination::Timestamp do
       end
 
       it 'knows when it is on the first page' do
-        scope = subject.page_by.per(2)
-        expect(scope.first_page?).to be_truthy
-        expect(Date.parse(scope.prev_page_value)).to eq subject.order(created_at: :desc).first.created_at
+        page = subject.page_by(before: true).per(2)
+        expect(page.first_page?).to be_truthy
 
-        scope = subject.page_by(before: time).per(2)
-        expect(scope.first_page?).to be_falsey
-        expect(scope.prev_page_value).to_not be_nil
+        page = subject.page_by(before: time + 2.days).per(2)
+        expect(page.first_page?).to be_truthy
+
+        page = subject.page_by(before: time).per(2)
+        expect(page.first_page?).to be_falsey
       end
 
       it 'knows when it is on the last page' do
-        scope = subject.page_by(before: time - 5.days).per(2)
-        expect(scope.last_page?).to be_truthy
-        expect(scope.next_page_value).to be_nil
+        page = subject.page_by(before: time - 2.days).per(2)
+        expect(page.last_page?).to be_truthy
 
-        scope = subject.page_by.per(2)
-        expect(scope.last_page?).to be_falsey
-        expect(scope.next_page_value).to_not be_nil
-      end
-
-      it 'allows specifying a different tables column' do
-        scope = subject.page_by(before: time, column: 'other_table.created_at')
-        expect(scope.to_sql).to include(%{"other_table"."created_at" < '2012-10-20 00:00:00.000000'})
-        expect(scope.to_sql).to include(%{"other_table"."created_at" DESC})
+        page = subject.page_by(before: time).per(2)
+        expect(page.last_page?).to be_falsey
       end
 
       it 'allows providing a callback for the next/prev pages' do
-        proc = ->(record) { record.created_at.to_s + '!!!!!!' }
-        scope = subject.page_by(before: time - 2.days, page_value: proc).per(1)
-        expect(scope.next_page_value).to eq('2012-10-17 00:00:00 UTC!!!!!!')
-        expect(scope.prev_page_value).to eq('2012-10-17 00:00:00 UTC!!!!!!')
+        page = subject.page_by(page_value: ->(record) { record.created_at.to_s + '!!!!!!' }).per(2)
+        expect(page.next_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
+        expect(page.prev_page_value).to eq('2012-10-20 00:00:00 UTC!!!!!!')
       end
 
     end
 
-    context 'using after' do
+    describe 'scope using after' do
       let(:scope) { subject.page_by(after: time - 3.days).per(2) }
 
-      it 'knows when it is paginatable' do
+      it 'knows that it is paginatable' do
+        expect { subject.paginatable? }.to raise_error
+        expect { subject.new.paginatable? }.to raise_error
         expect(scope.paginatable?).to be_truthy
       end
 
@@ -119,7 +204,7 @@ describe Api::Pagination::Timestamp do
         expect(scope.total_count).to eq(5)
       end
 
-      it 'knows the total pages based on how many per page' do
+      it 'knows the total number of pages' do
         expect(scope.total_pages).to eq(3)
       end
 
@@ -136,25 +221,22 @@ describe Api::Pagination::Timestamp do
       end
 
       it 'knows when it is on the first page' do
-        scope = subject.page_by(after: time - 5.days).per(2)
-        expect(scope.first_page?).to be_truthy
+        page = subject.page_by(after: true).per(2)
+        expect(page.first_page?).to be_truthy
 
-        scope = subject.page_by(after: time - 1.day).per(2)
-        expect(scope.first_page?).to be_falsey
+        page = subject.page_by(after: time - 5.days).per(2)
+        expect(page.first_page?).to be_truthy
+
+        page = subject.page_by(after: time - 3.days).per(2)
+        expect(page.first_page?).to be_falsey
       end
 
       it 'knows when it is on the last page' do
-        scope = subject.page_by(after: time).per(2)
-        expect(scope.last_page?).to be_truthy
+        page = subject.page_by(after: time - 1.days).per(2)
+        expect(page.last_page?).to be_truthy
 
-        scope = subject.page_by(after: time - 3.days).per(2)
-        expect(scope.last_page?).to be_falsey
-      end
-
-      it 'allows specifying a different tables column' do
-        scope = subject.page_by(after: time, column: 'other_table.created_at')
-        expect(scope.to_sql).to include(%{"other_table"."created_at" > '2012-10-20 00:00:00.000000'})
-        expect(scope.to_sql).to include(%{"other_table"."created_at" ASC})
+        page = subject.page_by(after: time - 3.days).per(2)
+        expect(page.last_page?).to be_falsey
       end
 
       it 'allows providing a callback for the next/prev pages' do
@@ -165,14 +247,8 @@ describe Api::Pagination::Timestamp do
       end
 
     end
-  end
 
-  describe 'paginating' do
-    before do
-      5.times { |i| subject.create!(created_at: time - i.days, updated_at: time - i.days) }
-    end
-
-    context 'by created_at' do
+    describe 'navigating through pages by created_at' do
 
       it 'returns the expected results' do
         page1 = subject.page_by.per(2)
@@ -192,11 +268,11 @@ describe Api::Pagination::Timestamp do
         expect(Date.parse(page3.next_page_value)).to eq subject.order(created_at: :desc).last.created_at
       end
 
-      describe 'generating params' do
+      describe 'params' do
         let(:params) { { foo: 'bar' } }
 
-        it 'adds paginator params to existing params' do
-          page = subject.page_by.per(2)
+        it 'can be built for additional pages including additional params' do
+          page = subject.page_by(before: true).per(2)
           prev_page_param = '2012-10-20T00:00:00.000000000+0000'
           next_page_param = '2012-10-19T00:00:00.000000000+0000'
           expect(page.page_param(params, page.first_page_value, 'first')).to eq(before: true, foo: 'bar')
@@ -208,7 +284,7 @@ describe Api::Pagination::Timestamp do
       end
     end
 
-    context 'by updated_at' do
+    describe 'navigating through pages by updated_at' do
 
       it 'returns the expected results' do
         page1 = subject.page_by(column: :updated_at).per(2)
@@ -228,11 +304,11 @@ describe Api::Pagination::Timestamp do
         expect(Date.parse(page3.next_page_value)).to eq subject.order(updated_at: :desc).last.updated_at
       end
 
-      describe 'generating params' do
+      describe 'params' do
         let(:params) { { foo: 'bar' } }
 
-        it 'adds paginator params to existing params' do
-          page = subject.page_by(column: :updated_at).per(2)
+        it 'can be built for additional pages including additional params' do
+          page = subject.page_by(before: true, column: :updated_at).per(2)
           prev_page_param = '2012-10-20T00:00:00.000000000+0000'
           next_page_param = '2012-10-19T00:00:00.000000000+0000'
           expect(page.page_param(params, page.first_page_value, 'first')).to eq(before: true, foo: 'bar')
@@ -244,10 +320,10 @@ describe Api::Pagination::Timestamp do
       end
     end
 
-    context 'in reverse order (using after)' do
+    describe 'navigating through pages in reverse order' do
 
       it 'returns the expected results' do
-        page1 = subject.page_by(after: time - 6.days).per(2)
+        page1 = subject.page_by(after: time - 5.days).per(2)
 
         expect(page1.first.created_at.to_s).to eq('2012-10-16 00:00:00 UTC')
         expect(page1.last.created_at.to_s).to eq('2012-10-17 00:00:00 UTC')
@@ -265,11 +341,11 @@ describe Api::Pagination::Timestamp do
         expect(Date.parse(page3.next_page_value)).to eq subject.order(created_at: :asc).last.created_at
       end
 
-      describe 'generating params' do
+      describe 'params' do
         let(:params) { { foo: 'bar' } }
 
-        it 'adds paginator params to existing params' do
-          page = subject.page_by(after: time - 6.days).per(2)
+        it 'can be built for additional pages including additional params' do
+          page = subject.page_by(after: true).per(2)
           prev_page_param = '2012-10-16T00:00:00.000000000+0000'
           next_page_param = '2012-10-17T00:00:00.000000000+0000'
           expect(page.page_param(params, page.first_page_value, 'first')).to eq(after: true, foo: 'bar')
