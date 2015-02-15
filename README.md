@@ -32,7 +32,7 @@ $ bundle
 
 Or install it yourself as:
 ```shell
-$ gem install chewy
+$ gem install api_pagination
 ```
 
 
