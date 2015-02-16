@@ -72,14 +72,16 @@ describe Api::Pagination::TimestampFilterable do
     it 'raises an exception if the object being paginated does not implement #filtered?' do
       expect{ TimestampFilterableRawMock.new.filtered? }.to raise_error(
         Api::Pagination::MissingFilterMethodError,
-        'Expected TimestampFilterableRawMock to implement a `filtered?` method.'
+        'Missing filter or no filter provided, ' +
+        'expected TimestampFilterableRawMock to respond to filtered? or to have a filter option provided.'
       )
     end
 
     it 'raises an exception when the timestamp is invalid' do
       expect{ subject.filtered_page_by(before: time.to_f) }.to raise_error(
         Api::Pagination::InvalidTimestampError,
-        "Invalid time value #{time.to_f}, expected string matching %Y-%m-%dT%H:%M:%S.%N%z."
+        'Invalid time value 1350691200.0, ' +
+        'expected string matching %Y-%m-%dT%H:%M:%S.%N%z.'
       )
     end
 
