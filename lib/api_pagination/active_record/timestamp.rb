@@ -15,7 +15,7 @@ module Api
           options = page_options_from_params(params)
 
           scope = limit(PER_PAGE_DEFAULT)
-          scope = scope.extending { include ScopeMethods }
+          scope = scope.extending { include Page }
           scope = scope.set_pagination_options(options.merge(scope: scope)).per(options[:per_page])
           add_timestamp_page_scope(scope, options)
         end
@@ -61,7 +61,7 @@ module Api
         end
       end
 
-      module ScopeMethods
+      module Page
         include Api::Pagination::CommonInterface
 
         # additional scopes

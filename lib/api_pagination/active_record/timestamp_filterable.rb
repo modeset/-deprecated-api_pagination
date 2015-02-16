@@ -26,14 +26,14 @@ module Api
           scope = self
           scope = block.call(self) if block_given?
           scope = scope.limit(options[:per_page] * PESSIMISTIC_MULTIPLIER)
-          scope = scope.extending { include Timestamp::ScopeMethods }
+          scope = scope.extending { include Timestamp::Page }
           scope = scope.set_pagination_options(options)
 
-          FilteredPage.new(self, scope, options)
+          Page.new(self, scope, options)
         end
       end
 
-      class FilteredPage
+      class Page
         include Enumerable
         extend Forwardable
         include Api::Pagination::CommonInterface
@@ -45,9 +45,9 @@ module Api
           @ar_scope = ar_scope
           @scope = scope
           @options = options
+          @sql = to_sql
 
           @results = [] # simulated enumerator
-          @sql = to_sql
           load_page(@scope, @options) unless @options[:lazy]
         end
 

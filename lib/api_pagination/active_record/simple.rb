@@ -12,7 +12,7 @@ module Api
       module ClassMethods
         def page(num_or_params = 1)
           scope = limit(PER_PAGE_DEFAULT)
-          scope = scope.extending { include ScopeMethods }
+          scope = scope.extending { include Page }
 
           if num_or_params.is_a?(Hash)
             scope = scope.offset(PER_PAGE_DEFAULT * ([num_or_params[:page].to_i, 1].max - 1))
@@ -25,7 +25,7 @@ module Api
         end
       end
 
-      module ScopeMethods
+      module Page
         include Api::Pagination::CommonInterface
 
         # additional scopes
