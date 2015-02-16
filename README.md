@@ -190,7 +190,9 @@ options = {
   page_value: ->(item) { item.read_attribute(:like_created_at) },
   per_page: 2
 }
-items = Item.joins(:likes).select('items.*, likes.created_at AS like_created_at').page_by(options)
+items = Item.joins(:likes).
+        select('items.*, likes.created_at AS like_created_at').
+        page_by(options)
 items.next_page_value # => the created_at column for the like of the last item in the page.
 ```
 
@@ -206,9 +208,9 @@ results with an enhanced interface. By default, if you ask for 10 items per page
 filter that set down to 10 based on the filter that you've specified -- it's a pessimistic multiplier.
 
 If more records have been filtered than the number asked for, additional queries are performed until the end of the data
-has been reached, or enough to fullfil the request have been loaded. This is done using recursion, and so can be highly
+has been reached, or enough to fulfill the request have been loaded. This is done using recursion, and so can be highly
 expensive if you think many records would be filtered before the desired count is fulfilled. You can modify the
-multiplier to load many more pages of records in cases like this.
+pessimistic multiplier to load more pages of records in cases like this.
 
 When using this paginator, a filter is expected, and this can be accomplished in one of three ways. When filtering a
 collection of models, it will attempt to call a `filtered?` method on each record unless an alternate `filter` option is
@@ -244,14 +246,14 @@ Item.filtered_page_by(before: true, per_page: 5)
 # 25 records, ordered by created_at DESC -- filtered using a proc.
 Item.filtered_page_by(filter: ->(record) { record.disabled? })
 
-# 25 records, ordered by created_at DESC -- filtered using an instance.
-Item.filtered_page_by(filter: Item::Filterer.new)
+# 25 active records, ordered by created_at DESC -- filtered using an instance.
+Item.filtered_page_by(filter: Item::Filterer.new) { |scope| scope.active }
 
-# 2 records, additional scope, ordered by created_at ASC.
+# 2 active records, ordered by created_at ASC.
 Item.filtered_page_by(after: true, per_page: 2) { |scope| scope.active }
 
-# 25 records, ordered by created_at DESC, lazy loaded (not loaded until accessed).
-Item.filtered_page_by(after: true, lazy: true)
+# 25 active records, ordered by created_at DESC, lazily loaded.
+Item.filtered_page_by(after: true, lazy: true) { |scope| scope.active }
 ```
 
 
