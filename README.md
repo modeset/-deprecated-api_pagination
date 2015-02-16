@@ -193,7 +193,7 @@ options = {
 items = Item.joins(:likes).
         select('items.*, likes.created_at AS like_created_at').
         page_by(options)
-items.next_page_value # => the created_at column for the like of the last item in the page.
+items.next_page_value # => like_created_at for the last item in the page.
 ```
 
 
