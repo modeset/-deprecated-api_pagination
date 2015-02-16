@@ -76,57 +76,57 @@ describe Api::Pagination::Simple do
       5.times { |i| subject.create!(created_at: time - i.days) }
     end
 
-    describe 'scope' do
-      let(:scope) { subject.page(2).per(2) }
+    describe 'page' do
+      let(:page) { subject.page(2).per(2) }
 
       it 'knows that it is paginatable' do
         expect { subject.paginatable? }.to raise_error
         expect { subject.new.paginatable? }.to raise_error
-        expect(scope.paginatable?).to be_truthy
+        expect(page.paginatable?).to be_truthy
       end
 
       it 'knows the total count of records' do
-        expect(scope.total_count).to eq(5)
+        expect(page.total_count).to eq(5)
       end
 
       it 'knows the total number of pages' do
-        expect(scope.total_pages).to eq(3)
+        expect(page.total_pages).to eq(3)
       end
 
       it 'knows how many pages remain' do
-        expect(scope.total_pages_remaining).to eq(1)
+        expect(page.total_pages_remaining).to eq(1)
       end
 
       it 'knows what the first page is' do
-        expect(scope.first_page_value).to eq(1)
+        expect(page.first_page_value).to eq(1)
       end
 
       it 'knows what the last page is' do
-        expect(scope.last_page_value).to eq(3)
+        expect(page.last_page_value).to eq(3)
       end
 
       it 'knows what the next page is' do
-        expect(scope.next_page_value).to eq(3)
+        expect(page.next_page_value).to eq(3)
       end
 
       it 'knows what the previous page is' do
-        expect(scope.prev_page_value).to eq(1)
+        expect(page.prev_page_value).to eq(1)
       end
 
       it 'knows when it is the first page' do
-        allow(scope).to receive(:current_page).and_return(1)
-        expect(scope.first_page?).to be_truthy
+        allow(page).to receive(:current_page).and_return(1)
+        expect(page.first_page?).to be_truthy
 
-        allow(scope).to receive(:current_page).and_return(2)
-        expect(scope.first_page?).to be_falsey
+        allow(page).to receive(:current_page).and_return(2)
+        expect(page.first_page?).to be_falsey
       end
 
       it 'knows when it is the last page' do
-        allow(scope).to receive(:current_page).and_return(3)
-        expect(scope.last_page?).to be_truthy
+        allow(page).to receive(:current_page).and_return(3)
+        expect(page.last_page?).to be_truthy
 
-        allow(scope).to receive(:current_page).and_return(2)
-        expect(scope.last_page?).to be_falsey
+        allow(page).to receive(:current_page).and_return(2)
+        expect(page.last_page?).to be_falsey
       end
 
     end
@@ -158,20 +158,18 @@ describe Api::Pagination::Simple do
         expect(page3.next_page_value).to be_nil
       end
 
-    end
+      describe 'params' do
+        let(:params) { { foo: 'bar' } }
 
-    describe 'params' do
-      let(:params) { { foo: 'bar' } }
-      let(:scope) { subject.order('created_at DESC') }
+        it 'can be built for additional pages including additional params' do
+          page = scope.page.per(2)
+          expect(page.page_param(params, page.first_page_value, 'first')).to eq(page: 1, foo: 'bar')
+          expect(page.page_param(params, page.last_page_value, 'last')).to eq(page: 3, foo: 'bar')
+          expect(page.page_param(params, page.prev_page_value, 'prev')).to eq(page: nil, foo: 'bar')
+          expect(page.page_param(params, page.next_page_value, 'next')).to eq(page: 2, foo: 'bar')
+        end
 
-      it 'can be built for additional pages including additional params' do
-        page = scope.page.per(2)
-        expect(page.page_param(params, page.first_page_value, 'first')).to eq(page: 1, foo: 'bar')
-        expect(page.page_param(params, page.last_page_value, 'last')).to eq(page: 3, foo: 'bar')
-        expect(page.page_param(params, page.prev_page_value, 'prev')).to eq(page: nil, foo: 'bar')
-        expect(page.page_param(params, page.next_page_value, 'next')).to eq(page: 2, foo: 'bar')
       end
-
     end
   end
 end

@@ -12,7 +12,7 @@ describe Api::Pagination::Timestamp do
     end
 
     it 'limits the amount of records requested to 100' do
-      expect(subject.page_by.per(200).limit_value).to eq(100)
+      expect(subject.page_by.per(101).limit_value).to eq(100)
     end
 
     it 'allows specifying a before option and how many per page' do
@@ -127,41 +127,41 @@ describe Api::Pagination::Timestamp do
       5.times { |i| subject.create!(created_at: time - i.days, updated_at: time - i.days) }
     end
 
-    describe 'scope using before' do
-      let(:scope) { subject.page_by(before: time).per(2) }
+    describe 'page using before' do
+      let(:page) { subject.page_by(before: time).per(2) }
 
       it 'knows that it is paginatable' do
         expect { subject.paginatable? }.to raise_error
         expect { subject.new.paginatable? }.to raise_error
-        expect(scope.paginatable?).to be_truthy
+        expect(page.paginatable?).to be_truthy
       end
 
       it 'knows the total count of records' do
-        expect(scope.total_count).to eq(5)
+        expect(page.total_count).to eq(5)
       end
 
       it 'knows the total number of pages' do
-        expect(scope.total_pages).to eq(3)
+        expect(page.total_pages).to eq(3)
       end
 
       it 'knows how many pages remain' do
-        expect(scope.total_pages_remaining).to eq(1)
+        expect(page.total_pages_remaining).to eq(1)
       end
 
       it 'knows what the first page is' do
-        expect(scope.first_page_value).to eq(true)
+        expect(page.first_page_value).to eq(true)
       end
 
       it 'knows what the last page is' do
-        expect(scope.last_page_value).to eq(true)
+        expect(page.last_page_value).to eq(true)
       end
 
       it 'knows what the next page is' do
-        expect(scope.next_page_value).to eq('2012-10-18T00:00:00.000000000+0000')
+        expect(page.next_page_value).to eq('2012-10-18T00:00:00.000000000+0000')
       end
 
       it 'knows what the previous page is' do
-        expect(scope.prev_page_value).to eq('2012-10-19T00:00:00.000000000+0000')
+        expect(page.prev_page_value).to eq('2012-10-19T00:00:00.000000000+0000')
       end
 
       it 'knows when it is on the first page' do
@@ -185,39 +185,39 @@ describe Api::Pagination::Timestamp do
 
       it 'allows providing a callback for the next/prev pages' do
         page = subject.page_by(page_value: ->(record) { record.created_at.to_s + '!!!!!!' }).per(2)
-        expect(page.next_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
         expect(page.prev_page_value).to eq('2012-10-20 00:00:00 UTC!!!!!!')
+        expect(page.next_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
       end
 
     end
 
-    describe 'scope using after' do
-      let(:scope) { subject.page_by(after: time - 3.days).per(2) }
+    describe 'page using after' do
+      let(:page) { subject.page_by(after: time - 3.days).per(2) }
 
       it 'knows that it is paginatable' do
         expect { subject.paginatable? }.to raise_error
         expect { subject.new.paginatable? }.to raise_error
-        expect(scope.paginatable?).to be_truthy
+        expect(page.paginatable?).to be_truthy
       end
 
       it 'knows the total count of records' do
-        expect(scope.total_count).to eq(5)
+        expect(page.total_count).to eq(5)
       end
 
       it 'knows the total number of pages' do
-        expect(scope.total_pages).to eq(3)
+        expect(page.total_pages).to eq(3)
       end
 
       it 'knows how many pages remain' do
-        expect(scope.total_pages_remaining).to eq(1)
+        expect(page.total_pages_remaining).to eq(1)
       end
 
       it 'knows what the next page is' do
-        expect(scope.next_page_value).to eq('2012-10-19T00:00:00.000000000+0000')
+        expect(page.next_page_value).to eq('2012-10-19T00:00:00.000000000+0000')
       end
 
       it 'knows what the previous page is' do
-        expect(scope.prev_page_value).to eq('2012-10-18T00:00:00.000000000+0000')
+        expect(page.prev_page_value).to eq('2012-10-18T00:00:00.000000000+0000')
       end
 
       it 'knows when it is on the first page' do
@@ -241,9 +241,9 @@ describe Api::Pagination::Timestamp do
 
       it 'allows providing a callback for the next/prev pages' do
         proc = ->(record) { record.created_at.to_s + '!!!!!!' }
-        scope = subject.page_by(after: time - 2.days, page_value: proc).per(1)
-        expect(scope.next_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
-        expect(scope.prev_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
+        page = subject.page_by(after: time - 2.days, page_value: proc).per(2)
+        expect(page.prev_page_value).to eq('2012-10-19 00:00:00 UTC!!!!!!')
+        expect(page.next_page_value).to eq('2012-10-20 00:00:00 UTC!!!!!!')
       end
 
     end
@@ -324,7 +324,6 @@ describe Api::Pagination::Timestamp do
 
       it 'returns the expected results' do
         page1 = subject.page_by(after: time - 5.days).per(2)
-
         expect(page1.first.created_at.to_s).to eq('2012-10-16 00:00:00 UTC')
         expect(page1.last.created_at.to_s).to eq('2012-10-17 00:00:00 UTC')
         expect(page1.total_pages_remaining).to eq(2)
