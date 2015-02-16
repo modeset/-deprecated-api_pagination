@@ -25,10 +25,9 @@ module Api
 
           scope = self
           scope = block.call(self) if block_given?
-          scope = scope.limit(PER_PAGE_DEFAULT * PESSIMISTIC_MULTIPLIER)
+          scope = scope.limit(options[:per_page] * PESSIMISTIC_MULTIPLIER)
           scope = scope.extending { include Timestamp::ScopeMethods }
           scope = scope.set_pagination_options(options)
-          scope = scope.per(options[:per_page] * PESSIMISTIC_MULTIPLIER)
 
           FilteredPage.new(self, scope, options)
         end
@@ -39,9 +38,8 @@ module Api
         extend Forwardable
         include Api::Pagination::CommonInterface
 
-        attr_accessor :results
         delegate [:to_ary, :each, :size, :length, :first, :last] => :results
-        delegate [:to_sql, :limit_value] => :@scope
+        delegate [:limit_value] => :@scope
 
         def initialize(ar_scope, scope, options)
           @ar_scope = ar_scope
@@ -49,11 +47,22 @@ module Api
           @options = options
 
           @results = [] # simulated enumerator
-          load_page(@scope, @options)
+          @sql = to_sql
+          load_page(@scope, @options) unless @options[:lazy]
+        end
+
+        # additional scopes
+        def to_sql
+          @ar_scope.add_timestamp_page_scope(@scope, @options).to_sql
+        end
+
+        def results
+          load_page(@scope, @options) unless @loaded
+          @results
         end
 
         # counts
-        # fall back to the interface / nil since it can't be calculated easily
+        # fall back to the interface / nil since it can't be calculated
 
         # determiners
         def first_page?
@@ -78,13 +87,13 @@ module Api
         end
 
         def prev_page_value
-          @prev_page ||= page_value_for(results.first)
+          @prev_page ||= page_value_for(@results.first)
           return true if !@prev_page && (@options[:before].present? || @options[:after].present?)
           @prev_page
         end
 
         def next_page_value
-          @next_page ||= page_value_for(results.last)
+          @next_page ||= page_value_for(@results.last)
         end
 
         # param helper
@@ -99,18 +108,20 @@ module Api
 
         private
 
-        def load_page(scope, options)
+        def load_page(scope, options, recursion = false)
+          @loaded = true
           local_scope = @ar_scope.add_timestamp_page_scope(scope, options)
+          return if recursion && local_scope.to_sql == @sql
           return if (records = local_scope.to_a).empty?
 
           filter_results(records)
-          load_page(scope, updated_options(options, records.last)) unless done?
+          load_page(scope, updated_options(options, records.last), true) unless done?
         end
 
         def filter_results(records)
           records.each do |record|
             next if record_filtered?(record)
-            results << record
+            @results << record
             break if done?
           end
         end
@@ -130,7 +141,7 @@ module Api
         end
 
         def done?
-          results.length >= @scope.limit_value / PESSIMISTIC_MULTIPLIER
+          @results.length >= @scope.limit_value / PESSIMISTIC_MULTIPLIER
         end
 
         def page_value_for(record)
