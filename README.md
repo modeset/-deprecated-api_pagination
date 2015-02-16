@@ -249,6 +249,9 @@ Item.filtered_page_by(filter: Item::Filterer.new)
 
 # 2 records, additional scope, ordered by created_at ASC.
 Item.filtered_page_by(after: true, per_page: 2) { |scope| scope.active }
+
+# 25 records, ordered by created_at DESC, lazy loaded (not loaded until accessed).
+Item.filtered_page_by(after: true, lazy: true)
 ```
 
 
